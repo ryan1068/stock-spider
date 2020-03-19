@@ -1,0 +1,21 @@
+env:
+  prod: true
+
+wss_listen_service:
+  service_listen_ip:  127.0.0.1
+  service_listen_port:  8888
+  service_listen_securt_cert:  D:\laradock\nginx\sites\ssl\server.crt
+  service_listen_securt_key:  D:\laradock\nginx\sites\ssl\server.key
+
+http_listen_service:
+  service_listen_port:  9999
+
+mysql_db:
+  ip: 192.168.2.240
+  port: 5306
+  username: root
+  password: root
+
+mongo_db:
+  ip_port: 192.168.2.240:11707
+  options:
