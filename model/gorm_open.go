@@ -3,7 +3,7 @@ package model
 import (
 	"github.com/jinzhu/gorm"
 	_ "github.com/jinzhu/gorm/dialects/mysql"
-	"stock/config"
+	"spider/config"
 )
 
 func GormOpenDB() (db *gorm.DB, err error) {

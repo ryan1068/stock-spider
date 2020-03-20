@@ -36,7 +36,7 @@ type mysqlDB struct {
 }
 
 func (db *mysqlDB) Dsn() string {
-	return db.Username + ":" + db.Password + "@tcp(" + db.IP + ":" + db.Port + ")/4s_wx_db?parseTime=true"
+	return db.Username + ":" + db.Password + "@tcp(" + db.IP + ":" + db.Port + ")/stock?parseTime=true"
 }
 
 type mongoDB struct {

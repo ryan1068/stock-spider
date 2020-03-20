@@ -11,8 +11,8 @@ http_listen_service:
   service_listen_port:  9999
 
 mysql_db:
-  ip: 192.168.2.240
-  port: 5306
+  ip: 127.0.0.1
+  port: 3306
   username: root
   password: root
 

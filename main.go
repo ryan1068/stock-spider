@@ -1,23 +1,29 @@
 package main
 
-type SearchResult struct {
-	Date        string `json:"日期"`
-	Code        string `json:"股票代码"`
-	Name        string `json:"名称"`
-	ClosePrice  string `json:"收盘价"`
-	HighPrice   string `json:"最高价"`
-	LowPrice    string `json:"最低价"`
-	OpenPrice   string `json:"开盘价"`
-	LastPrice   string `json:"前收盘"`
-	Quota       string `json:"涨跌额"`
-	Percent     string `json:"涨跌幅"`
-	Rate        string `json:"换手率"`
-	Amount      string `json:"成交量"`
-	MoneyAmount string `json:"成交金额"`
-	TotalValue  string `json:"总市值"`
-	MarketValue string `json:"流通市值"`
-}
+import (
+	"flag"
+	"spider/service"
+	"time"
+)
 
 func main() {
+	startTime := time.Now().AddDate(0, 0, -7)
+	startDate := startTime.Format("20060102")
+	endDate := time.Now().Format("20060102")
 
+	start := flag.String("start", startDate, "start date")
+	end := flag.String("end", endDate, "end date")
+	flag.Parse()
+
+	_, errS := time.Parse("20060102", *start)
+	if errS != nil {
+		panic("开始日期格式错误")
+	}
+
+	_, errE := time.Parse("20060102", *end)
+	if errE != nil {
+		panic("结束日期格式错误")
+	}
+
+	new(service.Task).Task(*start, *end)
 }
