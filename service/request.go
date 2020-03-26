@@ -27,11 +27,11 @@ type Result struct {
 	MarketValue float64
 }
 
-const ApiUrl string = "http://quotes.money.163.com/service/chddata.html"
+const CatchUrl string = "http://quotes.money.163.com/service/chddata.html"
 
 func (r Result) Request(code string, startDate string, endDate string) ([]Result, error) {
 	body := &bytes.Buffer{}
-	url := fmt.Sprintf(ApiUrl+"?code=%s&start=%s&end=%s", code, startDate, endDate)
+	url := fmt.Sprintf(CatchUrl+"?code=%s&start=%s&end=%s", code, startDate, endDate)
 	request, err := http.NewRequest(http.MethodPost, url, body)
 	if err != nil {
 		return nil, err

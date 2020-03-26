@@ -15,3 +15,8 @@ go run main.go
 //抓取自义定时间段数据
 go run main.go -start=20200323 -end=20200324
 ```
+## 运行效果
+
+<img src="http://blog.herozw.com/wp-content/uploads/2020/03/20200326161150_64608.png" height="750" />
+<img src="http://blog.herozw.com/wp-content/uploads/2020/03/20200326160419_27952.png"  />
+
