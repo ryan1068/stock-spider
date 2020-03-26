@@ -13,7 +13,7 @@
 go run main.go
 
 //抓取自义定时间段数据
-go run main.go -start=20200323 -end=20200324
+go run main.go -start=20200225 -end=20200325
 ```
 ## 运行效果
 
