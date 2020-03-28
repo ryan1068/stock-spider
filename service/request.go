@@ -10,9 +10,9 @@ import (
 )
 
 type Result struct {
-	Date        string 
-	Code        string 
-	Name        string 
+	Date        string
+	Code        string
+	Name        string
 	ClosePrice  float64
 	HighPrice   float64
 	LowPrice    float64
@@ -27,11 +27,11 @@ type Result struct {
 	MarketValue float64
 }
 
-const CatchUrl string = "http://quotes.money.163.com/service/chddata.html"
+const CrawlUrl string = "http://quotes.money.163.com/service/chddata.html"
 
 func (r Result) Request(code string, startDate string, endDate string) ([]Result, error) {
 	body := &bytes.Buffer{}
-	url := fmt.Sprintf(CatchUrl+"?code=%s&start=%s&end=%s", code, startDate, endDate)
+	url := fmt.Sprintf(CrawlUrl+"?code=%s&start=%s&end=%s", code, startDate, endDate)
 	request, err := http.NewRequest(http.MethodPost, url, body)
 	if err != nil {
 		return nil, err

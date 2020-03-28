@@ -51,7 +51,8 @@ func (t Task) Task(startDate string, endDate string) {
 		}
 
 		sliceStocksLen := len(sliceStocks)
-		spiderChan := make(chan int, sliceStocksLen)
+		spiderChan := make(chan []Result, sliceStocksLen)
+		doneChan := make(chan int, sliceStocksLen)
 		for _, value := range sliceStocks {
 			go t.Do(db, value, spiderChan, startDate, endDate)
 		}
@@ -60,7 +61,7 @@ func (t Task) Task(startDate string, endDate string) {
 		for {
 			select {
 			case <-ticker.C:
-				chanLen := len(spiderChan)
+				chanLen := len(doneChan)
 				if chanLen == sliceStocksLen {
 					fmt.Printf("任务完成100%s，累计耗时：%ds\n\n", "%", time.Now().Unix()-startTime)
 					break Loop
@@ -71,6 +72,12 @@ func (t Task) Task(startDate string, endDate string) {
 				progress := int(progressFloat * 100)
 
 				fmt.Printf("已经抓取%d条股票数据, 当前进度为%d%s\n", chanLen, progress, "%")
+
+			case s, ok := <-spiderChan:
+				if !ok {
+					return
+				}
+				go t.Store(db, s, doneChan)
 			}
 		}
 
@@ -82,10 +89,9 @@ func (t Task) Task(startDate string, endDate string) {
 	return
 }
 
-func (t Task) Do(db *gorm.DB, s stock.Stock, spiderChan chan int, startDate string, endDate string) {
+func (t Task) Do(db *gorm.DB, s stock.Stock, spiderChan chan []Result, startDate string, endDate string) {
 	results, _ := Result{}.Request(s.Code, startDate, endDate)
-	t.BatchCreate(db, results)
-	spiderChan <- 1
+	spiderChan <- results
 	return
 }
 
@@ -107,8 +113,9 @@ func (t Task) CalculateLowPercent(lowPrice float64, lastPrice float64) float64 {
 	return ConvertFloat64(lowPercent) * 100
 }
 
-func (t Task) BatchCreate(db *gorm.DB, results []Result) error {
+func (t Task) Store(db *gorm.DB, results []Result, doneChan chan int) error {
 	if len(results) == 0 {
+		doneChan <- 1
 		return fmt.Errorf("results数据为空")
 	}
 
@@ -130,6 +137,8 @@ func (t Task) BatchCreate(db *gorm.DB, results []Result) error {
 	if err := db.Exec(buffer.String()).Error; err != nil {
 		return err
 	}
+
+	doneChan <- 1
 
 	return nil
 }
