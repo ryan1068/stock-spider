@@ -34,7 +34,7 @@ CREATE TABLE `stock_trend` (
   `shock` float DEFAULT '0' COMMENT '当天最大振幅',
   `amount` bigint(20) DEFAULT '0' COMMENT '成交额',
   `amount_format` varchar(20) DEFAULT '' COMMENT '成交额(格式化)',
-  `close_color` varchar(4) DEFAULT '' COMMENT '1收红，2收绿',
+  `close_color` tinyint(1) DEFAULT 0 COMMENT '1收红，2收绿',
   `date` varchar(30) DEFAULT '',
   `created_at` int(11) DEFAULT '0',
   `updated_at` int(11) DEFAULT '0',
