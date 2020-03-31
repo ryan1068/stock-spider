@@ -24,5 +24,6 @@ func main() {
 		panic("end date format error")
 	}
 
-	new(service.Task).Task(*start, *end)
+	task := &service.Task{StartDate: *start, EndDate: *end}
+	task.Run()
 }

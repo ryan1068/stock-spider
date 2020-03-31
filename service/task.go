@@ -12,14 +12,16 @@ import (
 	"time"
 )
 
-type Task struct{}
+type Task struct {
+	StartDate     string
+	EndDate       string
+	ExecStartTime int64
+}
 
 var RequestLimit = 300
 
-func (t Task) Task(startDate string, endDate string) {
-	startTime := time.Now().Unix()
-	stocks, _ := stock.Stock{}.FindAll()
-
+func (t *Task) Run() {
+	t.ExecStartTime = time.Now().Unix()
 	db, err := model.GormOpenDB()
 	if err != nil {
 		return
@@ -31,29 +33,42 @@ func (t Task) Task(startDate string, endDate string) {
 	ticker := time.NewTicker(time.Second * 1)
 	defer ticker.Stop()
 
+	t.Task(db, ticker)
+
+	return
+}
+
+func (t *Task) Task(db *gorm.DB, ticker *time.Ticker) {
+	sql := fmt.Sprintf("TRUNCATE TABLE %s", stock.StockTrend{}.TableName())
+	if err := db.Exec(sql).Error; err != nil {
+		return
+	}
+
+	stocks, _ := new(stock.Stock).FindAll()
 	stocksLen := len(stocks)
 	taskNum := math.Ceil(float64(stocksLen) / float64(RequestLimit))
-	batchIndex := 1
+	taskIndex := 1
 
 	fmt.Printf("Total requests:%d，Total tasks:%d，Each task handing requests:%d...\n\n", stocksLen, int(taskNum), RequestLimit)
 
 	for i := 0; i < stocksLen; i += RequestLimit {
-		fmt.Printf("Task %d start...\n", batchIndex)
+		fmt.Printf("Task %d start...\n", taskIndex)
 
 		var sliceStocks []stock.Stock
-		if batchIndex == int(taskNum) {
+		if taskIndex == int(taskNum) {
 			// last task
 			sliceStocks = stocks[i:stocksLen]
 		} else {
-			sliceStocks = stocks[i : batchIndex*RequestLimit]
+			sliceStocks = stocks[i : taskIndex*RequestLimit]
 		}
 
 		sliceStocksLen := len(sliceStocks)
 		spiderChan := make(chan []Result, sliceStocksLen)
 		doneChan := make(chan int, sliceStocksLen)
 		go t.Store(db, spiderChan, doneChan)
+
 		for _, value := range sliceStocks {
-			go t.Do(db, value, spiderChan, startDate, endDate)
+			go t.Do(db, value, spiderChan)
 		}
 
 	Loop:
@@ -62,7 +77,7 @@ func (t Task) Task(startDate string, endDate string) {
 			case <-ticker.C:
 				chanLen := len(doneChan)
 				if chanLen == sliceStocksLen {
-					fmt.Printf("Task %d completed,Total spend:%ds\n\n", batchIndex, time.Now().Unix()-startTime)
+					fmt.Printf("Task %d completed,Total spend:%ds\n\n", taskIndex, time.Now().Unix()-t.ExecStartTime)
 					break Loop
 				}
 
@@ -74,16 +89,31 @@ func (t Task) Task(startDate string, endDate string) {
 			}
 		}
 
-		batchIndex++
+		taskIndex++
+
+		close(spiderChan)
+		close(doneChan)
 	}
 
-	fmt.Printf("All task done,Total spend:%ds\n\n", time.Now().Unix()-startTime)
+	fmt.Printf("All task done,Total spend:%ds\n\n", time.Now().Unix()-t.ExecStartTime)
 
 	return
 }
 
-func (t Task) Do(db *gorm.DB, s stock.Stock, spiderChan chan []Result, startDate string, endDate string) {
-	results, _ := Result{}.Request(s.Code, startDate, endDate)
+func (t Task) Store(db *gorm.DB, spiderChan chan []Result, doneChan chan int) {
+	for {
+		select {
+		case s, ok := <-spiderChan:
+			if !ok {
+				return
+			}
+			go t.BulkStorage(db, s, doneChan)
+		}
+	}
+}
+
+func (t Task) Do(db *gorm.DB, s stock.Stock, spiderChan chan []Result) {
+	results, _ := Result{}.Request(s.Code, t.StartDate, t.EndDate)
 	spiderChan <- results
 	return
 }
@@ -106,19 +136,7 @@ func (t Task) CalculateLowPercent(lowPrice float64, lastPrice float64) float64 {
 	return ConvertFloat64(lowPercent) * 100
 }
 
-func (t Task) Store(db *gorm.DB, spiderChan chan []Result, doneChan chan int) {
-	for {
-		select {
-		case s, ok := <-spiderChan:
-			if !ok {
-				return
-			}
-			go t.BatchSave(db, s, doneChan)
-		}
-	}
-}
-
-func (t Task) BatchSave(db *gorm.DB, results []Result, doneChan chan int) error {
+func (t Task) BulkStorage(db *gorm.DB, results []Result, doneChan chan int) error {
 	if len(results) == 0 {
 		doneChan <- 1
 		return fmt.Errorf("results empty")
@@ -126,7 +144,7 @@ func (t Task) BatchSave(db *gorm.DB, results []Result, doneChan chan int) error 
 
 	trends := t.ConvertStockTrend(results)
 	var buffer bytes.Buffer
-	sql := "insert into " + stock.StockTrend{}.TableName() + " (`code`, `name`, `open_price`, `close_price`, `open_percent`, `close_percent`, `high_percent`, `low_percent`, `shock`, `amount`, `amount_format`, `close_color`, `date`, `created_at`, `updated_at`) values"
+	sql := fmt.Sprintf("INSERT INTO %s (`code`, `name`, `open_price`, `close_price`, `open_percent`, `close_percent`, `high_percent`, `low_percent`, `shock`, `amount`, `amount_format`, `close_color`, `date`, `created_at`, `updated_at`) VALUES", stock.StockTrend{}.TableName())
 	if _, err := buffer.WriteString(sql); err != nil {
 		return err
 	}
