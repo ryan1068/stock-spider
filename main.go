@@ -7,8 +7,7 @@ import (
 )
 
 func main() {
-	startTime := time.Now().AddDate(0, 0, -7)
-	startDate := startTime.Format("20060102")
+	startDate := time.Now().AddDate(0, 0, -7).Format("20060102")
 	endDate := time.Now().Format("20060102")
 
 	start := flag.String("start", startDate, "start date")
@@ -17,12 +16,12 @@ func main() {
 
 	_, errS := time.Parse("20060102", *start)
 	if errS != nil {
-		panic("开始日期格式错误")
+		panic("start date format error")
 	}
 
 	_, errE := time.Parse("20060102", *end)
 	if errE != nil {
-		panic("结束日期格式错误")
+		panic("end date format error")
 	}
 
 	new(service.Task).Task(*start, *end)

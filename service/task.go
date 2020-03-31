@@ -14,7 +14,6 @@ import (
 
 type Task struct{}
 
-// 一次并发请求的数量
 var RequestLimit = 300
 
 func (t Task) Task(startDate string, endDate string) {
@@ -32,19 +31,18 @@ func (t Task) Task(startDate string, endDate string) {
 	ticker := time.NewTicker(time.Second * 1)
 	defer ticker.Stop()
 
-	//分批处理任务，控制并发量，防止目标服务器压力过大
 	stocksLen := len(stocks)
-	batchTimes := math.Ceil(float64(stocksLen) / float64(RequestLimit))
+	taskNum := math.Ceil(float64(stocksLen) / float64(RequestLimit))
 	batchIndex := 1
 
-	fmt.Printf("总共抓取%d条股票数据，分%d批抓取，每批抓取%d条数据...\n\n", stocksLen, int(batchTimes), RequestLimit)
+	fmt.Printf("Total requests:%d，Total tasks:%d，Each task handing requests:%d...\n\n", stocksLen, int(taskNum), RequestLimit)
 
 	for i := 0; i < stocksLen; i += RequestLimit {
-		fmt.Printf("第%d批任务开始...\n", batchIndex)
+		fmt.Printf("Task %d start...\n", batchIndex)
 
 		var sliceStocks []stock.Stock
-		if batchIndex == int(batchTimes) {
-			// 最后一批任务
+		if batchIndex == int(taskNum) {
+			// last task
 			sliceStocks = stocks[i:stocksLen]
 		} else {
 			sliceStocks = stocks[i : batchIndex*RequestLimit]
@@ -53,6 +51,7 @@ func (t Task) Task(startDate string, endDate string) {
 		sliceStocksLen := len(sliceStocks)
 		spiderChan := make(chan []Result, sliceStocksLen)
 		doneChan := make(chan int, sliceStocksLen)
+		go t.Store(db, spiderChan, doneChan)
 		for _, value := range sliceStocks {
 			go t.Do(db, value, spiderChan, startDate, endDate)
 		}
@@ -63,7 +62,7 @@ func (t Task) Task(startDate string, endDate string) {
 			case <-ticker.C:
 				chanLen := len(doneChan)
 				if chanLen == sliceStocksLen {
-					fmt.Printf("任务完成100%s，累计耗时：%ds\n\n", "%", time.Now().Unix()-startTime)
+					fmt.Printf("Task %d completed,Total spend:%ds\n\n", batchIndex, time.Now().Unix()-startTime)
 					break Loop
 				}
 
@@ -71,20 +70,14 @@ func (t Task) Task(startDate string, endDate string) {
 				progressFloat, _ := strconv.ParseFloat(progressString, 64)
 				progress := int(progressFloat * 100)
 
-				fmt.Printf("已经抓取%d条股票数据, 当前进度为%d%s\n", chanLen, progress, "%")
-
-			case s, ok := <-spiderChan:
-				if !ok {
-					return
-				}
-				go t.Store(db, s, doneChan)
+				fmt.Printf("Handing requests %d,Current progress:%d%s\n", chanLen, progress, "%")
 			}
 		}
 
 		batchIndex++
 	}
 
-	fmt.Printf("全部抓取完成，累计耗时：%ds\n\n", time.Now().Unix()-startTime)
+	fmt.Printf("All task done,Total spend:%ds\n\n", time.Now().Unix()-startTime)
 
 	return
 }
@@ -113,10 +106,22 @@ func (t Task) CalculateLowPercent(lowPrice float64, lastPrice float64) float64 {
 	return ConvertFloat64(lowPercent) * 100
 }
 
-func (t Task) Store(db *gorm.DB, results []Result, doneChan chan int) error {
+func (t Task) Store(db *gorm.DB, spiderChan chan []Result, doneChan chan int) {
+	for {
+		select {
+		case s, ok := <-spiderChan:
+			if !ok {
+				return
+			}
+			go t.BatchSave(db, s, doneChan)
+		}
+	}
+}
+
+func (t Task) BatchSave(db *gorm.DB, results []Result, doneChan chan int) error {
 	if len(results) == 0 {
 		doneChan <- 1
-		return fmt.Errorf("results数据为空")
+		return fmt.Errorf("results empty")
 	}
 
 	trends := t.ConvertStockTrend(results)
@@ -128,9 +133,9 @@ func (t Task) Store(db *gorm.DB, results []Result, doneChan chan int) error {
 
 	for i, v := range trends {
 		if i == len(trends)-1 {
-			buffer.WriteString(fmt.Sprintf("('%s', '%s', %f, %f, %f, %f, %f, %f, %f, %f, '%s', '%s', '%s', %d, %d);", v.Code, v.Name, v.OpenPrice, v.ClosePrice, v.OpenPercent, v.ClosePercent, v.HighPercent, v.LowPercent, v.Shock, v.Amount, v.AmountFormat, v.CloseColor, v.Date, v.CreatedAt, v.UpdatedAt))
+			buffer.WriteString(fmt.Sprintf("('%s', '%s', %f, %f, %f, %f, %f, %f, %f, %f, '%s', '%d', '%s', %d, %d);", v.Code, v.Name, v.OpenPrice, v.ClosePrice, v.OpenPercent, v.ClosePercent, v.HighPercent, v.LowPercent, v.Shock, v.Amount, v.AmountFormat, v.CloseColor, v.Date, v.CreatedAt, v.UpdatedAt))
 		} else {
-			buffer.WriteString(fmt.Sprintf("('%s', '%s', %f, %f, %f, %f, %f, %f, %f, %f, '%s', '%s', '%s', %d, %d),", v.Code, v.Name, v.OpenPrice, v.ClosePrice, v.OpenPercent, v.ClosePercent, v.HighPercent, v.LowPercent, v.Shock, v.Amount, v.AmountFormat, v.CloseColor, v.Date, v.CreatedAt, v.UpdatedAt))
+			buffer.WriteString(fmt.Sprintf("('%s', '%s', %f, %f, %f, %f, %f, %f, %f, %f, '%s', '%d', '%s', %d, %d),", v.Code, v.Name, v.OpenPrice, v.ClosePrice, v.OpenPercent, v.ClosePercent, v.HighPercent, v.LowPercent, v.Shock, v.Amount, v.AmountFormat, v.CloseColor, v.Date, v.CreatedAt, v.UpdatedAt))
 		}
 	}
 
@@ -149,11 +154,11 @@ func (t Task) ConvertStockTrend(results []Result) []stock.StockTrend {
 		highPercent := t.CalculateHighPercent(v.HighPrice, v.LastPrice)
 		lowPercent := t.CalculateLowPercent(v.LowPrice, v.LastPrice)
 		shock := highPercent - lowPercent
-		var closeColor string
+		var closeColor int8
 		if v.ClosePrice-v.OpenPrice >= 0 {
-			closeColor = "收红"
+			closeColor = 1
 		} else {
-			closeColor = "收绿"
+			closeColor = 2
 		}
 		stockTrend := stock.StockTrend{
 			Code:         v.Code[1:],

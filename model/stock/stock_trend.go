@@ -13,12 +13,12 @@ type StockTrend struct {
 	Shock        float64 `gorm:"column:shock;type:float;DEFAULT:0;NOT NULL;"`
 	Amount       float64 `gorm:"column:amount;type:float;DEFAULT:0;NOT NULL;"`
 	AmountFormat string  `gorm:"column:amount_format;type:varchar(20);NOT NULL;"`
-	CloseColor   string  `gorm:"column:close_color;type:varchar(10);NOT NULL;"`
+	CloseColor   int8    `gorm:"column:close_color;type:tinyint(1);NOT NULL;"`
 	Date         string  `gorm:"column:date;type:varchar(20);NOT NULL;"`
 	CreatedAt    int64   `gorm:"column:created_at;type:int(11);DEFAULT:0;NOT NULL;"`
 	UpdatedAt    int64   `gorm:"column:updated_at;type:int(11);DEFAULT:0;NOT NULL;"`
 }
 
 func (s StockTrend) TableName() string {
-	return "stock_trends"
+	return "stock_trend"
 }
