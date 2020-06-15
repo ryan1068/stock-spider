@@ -2,9 +2,10 @@
 
 ## 特点
 
-1. 使用go协程、连接池特性，30s秒内抓取所有股票数据
+1. 使用go协程、channel、数据库连接池特性，30s秒内抓取所有股票数据
 2. 程序执行时进度条显示
-3. 可以自定义日期查询
+3. 可以自定义时间段查询
+4. 请求记录logs
 
 ## 使用方式：
 
@@ -16,5 +17,4 @@ go run main.go
 go run main.go -start=20200225 -end=20200325
 ```
 
-<img src="http://herozw.com/wp-content/uploads/2020/03/20200326161150_64608.png"  />
-
+<img src="https://herozw.com/wp-content/uploads/2020/03/20200326161150_64608.png"  />
